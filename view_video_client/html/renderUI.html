@@ -1,0 +1,138 @@
+<html>
+    <body style="margin: 0;">
+        <h1>UI 3D pointer Example</h1>
+        <p>This example will subscribe to compressed camera topics.</p>
+        <h2 id="checker" style="color: green;">OpenCv is loading.....</h2>
+        <div id="statusIndicator">
+          <p id="connecting">
+            Connecting to rosbridge...
+          </p>
+          <p id="connected" style="color:#00D600; display:none">
+            Connected
+          </p>
+          <p id="error" style="color:#FF0000; display:none">
+            Error in the backend!
+          </p>
+          <p id="closed" style="display:none">
+            Connection closed.
+          </p>
+          <canvas id="canvas"></canvas>
+          <img id="left-src-image" ></img>
+          <img id="right-src-image" ></img>
+        </div>
+        <div>
+          <b>Receive message: </b>
+          <span id="subscription"></span>
+        </div>
+        <div class="container"></div>
+    
+        <script src="https://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
+        <script src="https://static.robotwebtools.org/roslibjs/current/roslib.js"></script>
+
+        <script type="text/javascript">
+            function opencvcheck() {
+             document.getElementById('checker').innerHTML="Opencv is Ready."
+            }
+        </script>
+        <script async src="../js/opencv.js" onload="opencvcheck()" type="text/javascript">
+        </script>
+
+        <script type="module">
+            import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
+            import { MapControls } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/controls/OrbitControls.js';
+            
+            const width = 768;
+            const height = 432; 
+
+            //const width = 640, height = 480;
+		    const nearClipping = 850, farClipping = 4000;
+            let mouse, center;
+
+            let imgSrc;
+
+            // Connecting to ROS
+            // -----------------
+            var ros = new ROSLIB.Ros();
+
+            // variables
+            let textureL;
+            let imagedata;
+
+            // If there is an error on the backend, an 'error' emit will be emitted.
+            ros.on('error', function(error) {
+              console.log('Error connecting to websocket server: ', error);
+              document.getElementById('connecting').style.display = 'none';
+              document.getElementById('connected').style.display = 'none';
+              document.getElementById('closed').style.display = 'none';
+              document.getElementById('error').style.display = 'inline';
+              console.log(error);
+            });
+
+            // Find out exactly when we made a connection.
+            ros.on('connection', function() {
+              console.log('Connection made!');
+              document.getElementById('connecting').style.display = 'none';
+              document.getElementById('error').style.display = 'none';
+              document.getElementById('closed').style.display = 'none';
+              document.getElementById('connected').style.display = 'inline';
+            });
+
+            ros.on('close', function() {
+              console.log('Connection closed.');
+              document.getElementById('connecting').style.display = 'none';
+              document.getElementById('connected').style.display = 'none';
+              document.getElementById('closed').style.display = 'inline';
+            });
+
+            // Create a connection to the rosbridge WebSocket server.
+            ros.connect('ws://192.168.1.131:9090');
+
+            //  Subscribe to Left image topic
+            var imageL = new ROSLIB.Topic({
+              ros : ros,
+              name : '/left_stream/compressed',
+              messageType : 'sensor_msgs/CompressedImage',
+              // Add this two values to avoid message aging/increasing delay effect
+              // check, https://github.com/gramaziokohler/roslibpy/issues/41
+              // https://github.com/RobotWebTools/rosbridge_suite/blob/ros2/ROSBRIDGE_PROTOCOL.md#344-subscribe
+              throttle_rate: 500,
+              queue_size: 5
+             });
+
+             //  Subscribe to Right image topic
+            var imageR = new ROSLIB.Topic({
+              ros : ros,
+              name : '/right_stream/compressed',
+              messageType : 'sensor_msgs/CompressedImage',
+              // Add this two values to avoid message aging/increasing delay effect
+              throttle_rate: 500,
+              queue_size: 5
+            });
+
+            // Subscribe to image Topic
+            var imageLeft = new Image();
+            var imageRight = new Image();
+    
+
+            imageR.subscribe(function(message){
+            
+                //console.log('Received message on ' + imageR.name + ': format ' + message.format + ': image size ' + message.data.length);              
+                // Create R jpeg image for showing
+                imageRight.src = "data:image/jpeg;base64," + btoa(String.fromCharCode.apply(null,new Uint8Array(message.data)));  
+                let rightsrcImg = document.getElementById('right-src-image');
+                rightsrcImg.setAttribute('src', imageRight.src);
+            });
+    
+            imageL.subscribe(function(message){
+            
+                //console.log('Received message on ' + imageL.name + ': format ' + message.format + ': image size ' + message.data.length);              
+                
+                // Create L jpeg image for showing
+                imageLeft.src = "data:image/jpeg;base64," + btoa(String.fromCharCode.apply(null,new Uint8Array(message.data)));  
+                let leftsrcImg = document.getElementById('left-src-image');
+                leftsrcImg.setAttribute('src', imageLeft.src);
+            });               
+
+        </script>
+    </body>
+</html>
